@@ -9,6 +9,12 @@ from transformers import Sam3Processor, Sam3Model
 from pycocotools.coco import COCO
 from sklearn.manifold import TSNE
 from tqdm import tqdm
+from dotenv import load_dotenv
+
+load_dotenv()
+HF_CODE = os.environ.get('HF_TOKEN')
+print("HF_TOKEN 로드 완료")
+os.environ["HF_TOKEN"] = HF_CODE
 
 # ==========================================
 # 1. 초기 설정 (디바이스, 모델, 데이터 경로)
@@ -33,28 +39,38 @@ coco = COCO(annFile)
 # ==========================================
 hooked_embeddings = {}
 
-def hook_fn(module, input, output):
-    if hasattr(output, '__getitem__') and not isinstance(output, torch.Tensor):
-        main_tensor = output[0]
+# Forward Hook 함수 정의
+def get_geometry_embeds_hook(module, input, output):
+    # Hugging Face의 ModelOutput(예: Sam3GeometryEncoderOutput) 처리
+    if hasattr(output, 'last_hidden_state'):
+        # 속성이 명시적으로 있는 경우
+        tensor = output.last_hidden_state
+    elif hasattr(output, '__getitem__'):
+        # 튜플처럼 인덱싱이 가능한 경우 (첫 번째 요소가 메인 임베딩 텐서)
+        tensor = output[0]
     else:
-        main_tensor = output
-    hooked_embeddings['geometry_out'] = main_tensor.detach().cpu()
+        tensor = output
+    
+    # GPU에 있는 텐서를 CPU로 옮기고 계산 그래프에서 분리한 뒤 저장
+    hooked_embeddings['geometry_out'] = tensor.detach().cpu()
 
-# Hook 등록
-hook_handle = model.geometry_encoder.register_forward_hook(hook_fn)
+# geometry_encoder의 최종 출력단에 Hook 등록
+hook_handle = model.geometry_encoder.register_forward_hook(get_geometry_embeds_hook)
+print("Geometry Encoder에 Forward Hook 등록 완료.")
+
 
 # ==========================================
 # 3. 샘플링 및 임베딩 추출
 # ==========================================
 target_categories = [
-    'person', 'car', 'dog', 'cat'
+    'person', 'car', 'dog', 'cat', 'handbag', 'truck', 'bench'
 ]
-samples_per_cat = 20
+samples_per_cat = 30
 
 all_embeddings = []
 all_labels = []
 
-# 결과 재현성을 위한 시드 고정 (선택 사항)
+# 결과 재현성을 위한 시드 고정
 random.seed(42)
 
 print("데이터 샘플링 및 임베딩 추출을 시작합니다...")
@@ -109,15 +125,17 @@ for cat_name in tqdm(target_categories, desc="Categories"):
             inputs = processor(
                 images=image,
                 input_boxes=[[box_xyxy]],
-                input_boxes_labels=[[1]],
+                input_boxes_labels=[[1]], # Positive prompt
                 return_tensors="pt"
             ).to(device)
 
             with torch.no_grad():
                 outputs = model(**inputs)
 
-            # 임베딩 추출 및 평탄화(Flatten)
+            # Hook을 통해 추출된 임베딩 가져오기
             emb = hooked_embeddings['geometry_out']
+            
+            # 1D 배열로 평탄화(Flatten)하여 numpy 형태로 저장
             emb_flat = emb.view(-1).numpy()
             
             all_embeddings.append(emb_flat)
@@ -127,7 +145,7 @@ for cat_name in tqdm(target_categories, desc="Categories"):
 
 # Hook 해제 (메모리 누수 방지)
 hook_handle.remove()
-print(f"추출 완료: 총 {len(all_embeddings)}개의 임베딩 수집됨.")
+print(f"\n추출 완료: 총 {len(all_embeddings)}개의 임베딩 수집됨.")
 
 # ==========================================
 # 4. t-SNE 차원 축소 및 시각화
@@ -135,8 +153,8 @@ print(f"추출 완료: 총 {len(all_embeddings)}개의 임베딩 수집됨.")
 print("t-SNE 분석 및 시각화를 진행합니다...")
 X = np.array(all_embeddings)
 
-# 데이터가 50개(10 x 5)이므로 perplexity를 낮게 설정해야 함
-perplexity_value = min(15, len(X) - 1) 
+# 데이터 개수에 맞춰 perplexity 자동 조절
+perplexity_value = min(30, len(X) - 1) 
 tsne = TSNE(n_components=2, random_state=42, perplexity=perplexity_value)
 X_tsne = tsne.fit_transform(X)
 
@@ -146,14 +164,17 @@ sns.scatterplot(
     x=X_tsne[:, 0], 
     y=X_tsne[:, 1],
     hue=all_labels,
-    palette=sns.color_palette("tab10", len(target_categories)), # 10개 카테고리용 색상
-    s=150,       # 점 크기 (데이터가 적으므로 크게)
+    palette=sns.color_palette("tab10", len(target_categories)), # 카테고리 수에 맞춘 색상
+    s=150,       # 점 크기
     alpha=0.8,   # 투명도
     edgecolor='w', # 점 테두리
     linewidth=1
 )
 
-plt.title("t-SNE of SAM 3 Visual Prompt Embeddings (10 Categories x 5 Samples)", fontsize=16)
+# 동적 타이틀
+num_cats = len(target_categories)
+title_str = f"t-SNE of SAM 3 Visual Prompt Embeddings ({num_cats} Categories x {samples_per_cat} Samples)"
+plt.title(title_str, fontsize=16)
 plt.xlabel("t-SNE Dim 1", fontsize=12)
 plt.ylabel("t-SNE Dim 2", fontsize=12)
 
@@ -162,7 +183,7 @@ plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title="Categories", fonts
 plt.tight_layout()
 
 # 저장 및 출력
-output_filename = "sam3_tsne_10cats_5samples.png"
+output_filename = f"sam3_tsne_{num_cats}cats_{samples_per_cat}samples.png"
 plt.savefig(output_filename, dpi=300)
 plt.show()
 
