@@ -13,7 +13,7 @@ plt.rcParams['axes.titlesize'] = 16
 plt.rcParams['legend.fontsize'] = 12
 
 # 💡 SAM 3 모델로 추출한 pkl 파일을 불러오도록 이름 수정
-with open("./analysis/sam3_cococ_features.pkl", "rb") as f:
+with open("../analysis/sam3_cococ_features.pkl", "rb") as f:
     data = pickle.load(f)
 
 corruptions = ['brightness', 'contrast', 'defocus_blur', 'elastic_transform', 'fog', 'frost', 'gaussian_noise', 'glass_blur', 'impulse_noise', 'jpeg_compression', 'motion_blur', 'pixelate', 'shot_noise', 'snow', 'zoom_blur']
@@ -57,6 +57,6 @@ ax.legend(loc='lower left', bbox_to_anchor=(0.0, 0.0), ncol=3, fontsize=10)
 
 plt.tight_layout()
 # 💡 저장되는 이미지 파일 이름도 sam3용으로 수정
-save_path = "./analysis/sam3_fig1_severity_drop.png"
+save_path = "../analysis/sam3_fig1_severity_drop.png"
 plt.savefig(save_path, dpi=300)
 print(f"Saved: {save_path}")

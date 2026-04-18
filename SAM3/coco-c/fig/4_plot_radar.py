@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import cosine_similarity
 
-with open("./analysis/sam3_cococ_features.pkl", "rb") as f:
+with open("../analysis/sam3_cococ_features.pkl", "rb") as f:
     data = pickle.load(f)
 
 corruptions = ['brightness', 'contrast', 'defocus_blur', 'elastic_transform', 'fog', 'frost', 'gaussian_noise', 'glass_blur', 'impulse_noise', 'jpeg_compression', 'motion_blur', 'pixelate', 'shot_noise', 'snow', 'zoom_blur']
@@ -39,5 +39,5 @@ ax.set_title('Robustness Area across Corruptions (Severity 4)', size=15, pad=20)
 ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
 
 plt.tight_layout()
-plt.savefig("./analysis/fig4_radar_chart.png", dpi=300)
+plt.savefig("../analysis/fig4_radar_chart.png", dpi=300)
 print("Saved fig4")

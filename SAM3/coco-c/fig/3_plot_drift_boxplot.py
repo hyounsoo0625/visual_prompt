@@ -5,7 +5,7 @@ import seaborn as sns
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
-with open("./analysis/sam3_cococ_features.pkl", "rb") as f:
+with open("../analysis/sam3_cococ_features.pkl", "rb") as f:
     data = pickle.load(f)
 
 corruptions = ['brightness', 'contrast', 'defocus_blur', 'elastic_transform', 'fog', 'frost', 'gaussian_noise', 'glass_blur', 'impulse_noise', 'jpeg_compression', 'motion_blur', 'pixelate', 'shot_noise', 'snow', 'zoom_blur']
@@ -34,5 +34,5 @@ ax.set_ylim(0.2, 1.0)
 ax.grid(axis='y', linestyle='--', alpha=0.7)
 
 plt.tight_layout()
-plt.savefig("./analysis/fig3_drift_boxplot.png", dpi=300)
+plt.savefig("../analysis/fig3_drift_boxplot.png", dpi=300)
 print("Saved fig3")

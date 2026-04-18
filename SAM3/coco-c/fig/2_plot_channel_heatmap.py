@@ -10,7 +10,7 @@ plt.rcParams['axes.titlesize'] = 16
 plt.rcParams['legend.fontsize'] = 12
 
 # SAM 3 특징 파일 로드
-with open("./analysis/sam3_cococ_features.pkl", "rb") as f:
+with open("../analysis/sam3_cococ_features.pkl", "rb") as f:
     data = pickle.load(f)
 
 corruptions = ['brightness', 'contrast', 'defocus_blur', 'elastic_transform', 'fog', 'frost', 'gaussian_noise', 'glass_blur', 'impulse_noise', 'jpeg_compression', 'motion_blur', 'pixelate', 'shot_noise', 'snow', 'zoom_blur']
@@ -64,6 +64,6 @@ ax.set_title('SAM 3 Channel Sensitivity Map (Severity 5)')
 plt.tight_layout()
 
 # 💡 저장 파일명 수정
-save_path = "./analysis/sam3_fig2_channel_heatmap.png"
+save_path = "../analysis/sam3_fig2_channel_heatmap.png"
 plt.savefig(save_path, dpi=300)
 print(f"Saved {save_path}")
