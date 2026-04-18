@@ -66,7 +66,7 @@ print("Geometry Encoder에 Forward Hook 등록 완료.")
 target_categories = [
     'person', 'car', 'dog', 'cat', 'handbag', 'truck', 'bench'
 ]
-samples_per_cat = 30
+samples_per_cat = 100
 
 all_embeddings = []
 all_labels = []
