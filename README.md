@@ -31,3 +31,6 @@ cd ../SAM3/coco-c
 python dataset.py
 
 ```
+
+## TODO
+coco-c embed_extract.py 진행 후, fig 출력
