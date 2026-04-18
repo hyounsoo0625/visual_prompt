@@ -73,15 +73,15 @@ def main(args):
 
     hooked_embeddings = {}
     def get_geometry_embeds_hook(module, input, output):
-        if hasattr(output, 'prompt_cross_attn'):
-            tensor = output.prompt_cross_attn
+        if hasattr(output, 'last_hidden_state'):
+            tensor = output.last_hidden_state
         elif hasattr(output, '__getitem__'):
             tensor = output[0]
         else:
             tensor = output
         hooked_embeddings['geometry_out'] = tensor.detach().cpu()
 
-    hook_handle = model.mask_decoder.register_forward_hook(get_geometry_embeds_hook)
+    hook_handle = model.geometry_encoder.register_forward_hook(get_geometry_embeds_hook)
     print("[Info] Geometry Encoder Hook attached.")
 
     def get_embedding(img_path, bbox):

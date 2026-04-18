@@ -1,4 +1,5 @@
 import argparse
+from SAM3.sam import SAM3
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -38,26 +39,12 @@ def main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[Info] Loading SAM 3 model on {device}...")
     
-    model = Sam3Model.from_pretrained("facebook/sam3").to(device)
-    processor = Sam3Processor.from_pretrained("facebook/sam3")
-
-    # ==========================================
-    # 1. Hook 설정 (Geometry Encoder)
-    # ==========================================
-    hooked_embeddings = {}
-
-    def get_geometry_embeds_hook(module, input, output):
-        if hasattr(output, 'last_hidden_state'):
-            tensor = output.last_hidden_state
-        elif hasattr(output, '__getitem__'):
-            tensor = output[0]
-        else:
-            tensor = output
-        # GPU 메모리 누수 방지
-        hooked_embeddings['geometry_out'] = tensor.detach().cpu()
-
-    hook_handle = model.geometry_encoder.register_forward_hook(get_geometry_embeds_hook)
-    print("[Info] Geometry Encoder Hook attached.")
+    # 모델 및 프로세서 로드
+    base_model = Sam3Model.from_pretrained("facebook/sam3").to(device)
+    base_processor = Sam3Processor.from_pretrained("facebook/sam3")
+    
+    # 클래스 인스턴스화 (자동으로 훅이 부착됨)
+    sam3_extractor = SAM3(model=base_model, processor=base_processor)
 
     random.seed(args.seed)
     
@@ -119,22 +106,9 @@ def main(args):
                     
                     box_xyxy = [x1, y1, x2, y2]
 
-                    # ==========================================
-                    # 2. SAM 3 추론 및 임베딩 추출
-                    # ==========================================
-                    hooked_embeddings.clear()
+                    emb = sam3_extractor.get_geometry_embeddings(image=pil_image, box_xyxy=box_xyxy)
                     
-                    inputs = processor(
-                        images=pil_image,
-                        input_boxes=[[box_xyxy]], # 3중 리스트 유지
-                        return_tensors="pt"
-                    ).to(device)
-
-                    with torch.no_grad():
-                        _ = model(**inputs)
-
-                    if 'geometry_out' in hooked_embeddings:
-                        emb = hooked_embeddings['geometry_out']
+                    if emb is not None:
                         v_vec = emb.view(-1)
                         if v_vec.numel() == 0: continue
                         
@@ -150,7 +124,7 @@ def main(args):
             pass
 
     # Hook 제거
-    hook_handle.remove()
+    sam3_extractor.remove_hook()
 
     if len(embeddings) == 0:
         print("[Error] No embeddings were extracted. Check your data paths and token.")

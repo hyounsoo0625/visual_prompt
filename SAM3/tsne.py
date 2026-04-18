@@ -24,7 +24,8 @@ print(f"[{device}] 환경에서 모델을 로드합니다...")
 
 model = Sam3Model.from_pretrained("facebook/sam3").to(device)
 processor = Sam3Processor.from_pretrained("facebook/sam3")
-
+print(model)
+exit(0)
 dataDir = '../data/coco'
 dataType = 'val2017'
 annFile = f'{dataDir}/annotations/instances_{dataType}.json'
