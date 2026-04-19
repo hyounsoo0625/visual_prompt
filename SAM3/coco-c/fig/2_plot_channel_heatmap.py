@@ -37,33 +37,26 @@ for corr in corruptions:
 heatmap_data = np.array(channel_stds)
 
 # ==========================================
-# 💡 수정 포인트: 실제로 가장 민감한 상위 50개 채널 추출
+# 💡 수정 포인트: 상위 50개 슬라이싱 제거, 전체 데이터 사용
 # ==========================================
-# 전체 손상(Corruption)에 대해 평균적으로 가장 크게 변동한 채널 순위 계산
-overall_mean_diff = np.mean(heatmap_data, axis=0)
-top_50_indices = np.argsort(overall_mean_diff)[::-1][:50] # 내림차순 정렬 후 상위 50개
-
-# 상위 50개 채널만 슬라이싱
-heatmap_data_top50 = heatmap_data[:, top_50_indices]
-
-# 가로 크기를 50개 채널 비율에 맞게 적절히 조정 (기존 32는 너무 넓을 수 있음)
+# 전체 채널을 시각화하므로, 가로 크기를 넓게 유지
 fig, ax = plt.subplots(figsize=(24, 10))
 
-# 데이터 적용 (heatmap_data_top50)
-sns.heatmap(heatmap_data_top50, cmap="YlOrRd", cbar_kws={'label': 'Mean Absolute Deviation'}, ax=ax)
+# 데이터 적용 (전체 heatmap_data)
+# xticklabels=50 옵션으로 x축 눈금이 너무 빽빽해지는 것을 방지 (50 채널마다 표시)
+sns.heatmap(heatmap_data, cmap="YlOrRd", cbar_kws={'label': 'Mean Absolute Deviation'}, xticklabels=50, ax=ax)
 
 ax.set_yticklabels([c.replace('_', ' ').title() for c in corruptions], rotation=0, fontsize=12)
 
-# x축 레이블에 '실제 채널 인덱스 번호'를 표기하여 논문 분석 시 특정 채널을 지목할 수 있게 도움
-ax.set_xticklabels(top_50_indices, rotation=90, fontsize=9) 
-ax.set_xlabel('Embedding Dimension / Channel Index (Top 50 Most Sensitive)')
+# x축 레이블 변경 (Top 50 문구 제거)
+ax.set_xlabel('Embedding Dimension / Channel Index')
 
-# 💡 제목 수정 (SAM 3 명시)
-ax.set_title('SAM 3 Channel Sensitivity Map (Severity 5)')
+# 제목 수정
+ax.set_title('SAM 3 Channel Sensitivity Map (All Channels, Severity 5)')
 
 plt.tight_layout()
 
-# 💡 저장 파일명 수정
-save_path = "../analysis/sam3_fig2_channel_heatmap.png"
+# 저장 파일명 (선택적으로 변경 가능)
+save_path = "../analysis/sam3_fig2_channel_heatmap_all.png"
 plt.savefig(save_path, dpi=300)
 print(f"Saved {save_path}")

@@ -21,7 +21,6 @@ def parse_args():
     parser.add_argument("--model", type=str, default="facebook/sam3") 
     parser.add_argument("--data_dir", type=str, default="../../data/coco")
     parser.add_argument("--num_samples", type=int, default=1000, help="평가할 샘플 수")
-    # 💡 50개 단위로 중간 저장 (원하시는 숫자로 조정하세요)
     parser.add_argument("--save_interval", type=int, default=50, help="중간 저장 간격") 
     return parser.parse_args()
 
@@ -40,13 +39,32 @@ def main(args):
     corruptions = ['brightness', 'contrast', 'defocus_blur', 'elastic_transform', 'fog', 'frost', 'gaussian_noise', 'glass_blur', 'impulse_noise', 'jpeg_compression', 'motion_blur', 'pixelate', 'shot_noise', 'snow', 'zoom_blur']
     severities = ['1', '2', '3', '4', '5']
     
-    results = {}
-    
     os.makedirs("./analysis", exist_ok=True)
     save_path = "./analysis/sam3_cococ_features.pkl"
 
+    # ==========================================
+    # 💡 이어하기(Resume) 로직 추가
+    # ==========================================
+    if os.path.exists(save_path):
+        print(f"[Info] 기존 저장 파일 발견: {save_path}")
+        with open(save_path, "rb") as f:
+            results = pickle.load(f)
+        print(f"[Info] {len(results)}개의 데이터가 이미 처리되어 있습니다. 이어서 시작합니다.")
+    else:
+        results = {}
+        print("[Info] 기존 저장 파일이 없습니다. 처음부터 시작합니다.")
+
+    # 아직 처리되지 않은 ann_id만 추려내기
+    remaining_ann_ids = [aid for aid in ann_ids if aid not in results]
+    print(f"[Info] 전체 대상: {len(ann_ids)}개 | 남은 대상: {len(remaining_ann_ids)}개")
+
+    if len(remaining_ann_ids) == 0:
+        print("[Info] 모든 샘플이 이미 처리되었습니다. 스크립트를 종료합니다.")
+        return
+
     print("[Info] Extracting Features...")
-    for i, ann_id in enumerate(tqdm(ann_ids)):
+    # tqdm은 남은 항목(remaining_ann_ids)에 대해서만 진행
+    for i, ann_id in enumerate(tqdm(remaining_ann_ids)):
         ann = coco.loadAnns(ann_id)[0]
         img_info = coco.loadImgs(ann['image_id'])[0]
         file_name = img_info['file_name']
@@ -86,13 +104,12 @@ def main(args):
                     print(f"[Error] Failed on corrupted image {ann_id}: {e}")
 
         # ==========================================
-        # 💡 핵심: 주기적으로 단일 파일에 덮어쓰기 저장 (메모리 비우지 않음)
+        # 💡 핵심: 주기적으로 단일 파일에 덮어쓰기 저장
         # ==========================================
         if (i + 1) % args.save_interval == 0:
             with open(save_path, "wb") as f:
                 pickle.dump(results, f)
-            # 진행 상태를 터미널에 살짝 찍어줍니다.
-            print(f"\n[Checkpoint] {i + 1}/{len(ann_ids)} - Current progress saved to {save_path}")
+            print(f"\n[Checkpoint] {len(results)}/{len(ann_ids)} - Current progress saved to {save_path}")
 
     sam_extractor.remove_hook()
 
