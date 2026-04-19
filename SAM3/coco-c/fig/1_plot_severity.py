@@ -49,7 +49,7 @@ ax.set_xlabel('Corruption Severity')
 ax.set_ylabel('Cosine Similarity to Clean Prototype')
 # 💡 그래프 제목을 SAM 3로 수정
 ax.set_title('SAM 3 Feature Robustness against Corruptions')
-ax.set_ylim(0.0, 1.05)
+ax.set_ylim(0.6, 1.05)
 ax.grid(True, linestyle='--', alpha=0.6)
 
 # 범례 위치를 조금 더 깔끔하게 조정 (데이터가 가려지지 않도록)

@@ -7,9 +7,16 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from pycocotools.coco import COCO
 from PIL import Image
-from transformers import SamModel, SamProcessor # SAM 3 사용 시 Sam3Model, Sam3Processor로 변경
+from transformers import Sam3Processor, Sam3Model
 from tqdm import tqdm
+from dotenv import load_dotenv
 
+# HF 토큰 로드
+load_dotenv()
+HF_CODE = os.environ.get('HF_TOKEN')
+if HF_CODE:
+    os.environ["HF_TOKEN"] = HF_CODE
+    print("[Info] HF_TOKEN 로드 완료")
 def parse_args():
     parser = argparse.ArgumentParser(description="COCO-O Heatmap Analysis")
     # 경로 설정
@@ -25,13 +32,12 @@ def parse_args():
     parser.add_argument("--sample_per_domain", type=int, default=200, help="도메인당 추출할 최대 객체 수")
     
     # 모델 설정
-    parser.add_argument("--model_id", type=str, default="facebook/sam-vit-base")
+    parser.add_argument("--model_id", type=str, default="facebook/sam3")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     
     return parser.parse_args()
 
 def get_embedding(model, processor, img_path, bbox, device):
-    """이미지 경로와 bbox를 받아 임베딩을 추출 (SAM Mask Decoder 토큰 기준)"""
     try:
         image = Image.open(img_path).convert("RGB")
         x, y, w, h = bbox
@@ -39,31 +45,44 @@ def get_embedding(model, processor, img_path, bbox, device):
         
         inputs = processor(images=image, input_boxes=[[box_xyxy]], return_tensors="pt").to(device)
         
-        captured = []
-        def hook(m, i, o): captured.append(o[0].detach().cpu())
-        handle = model.mask_decoder.transformer.register_forward_hook(hook)
+        hooked_embeddings = {}
+        def hook(module, input, output):
+            # SAM3의 출력 구조에 따라 적절히 텐서 추출
+            if hasattr(output, 'last_hidden_state'):
+                tensor = output.last_hidden_state
+            elif isinstance(output, (list, tuple)):
+                tensor = output[0]
+            else:
+                tensor = output
+            hooked_embeddings['geometry_out'] = tensor.detach().cpu()
+
+        # geometry_encoder의 구조를 확인해야 함 (transformer 내부 레이어에 걸기)
+        handle = model.geometry_encoder.register_forward_hook(hook)
         
         with torch.no_grad():
             _ = model(**inputs)
         handle.remove()
         
-        # 마지막 2개 토큰(Box 관련) 사용 (평탄화 후 정규화)
-        tokens = captured[0][:, -2:, :].view(-1)
-        return F.normalize(tokens, dim=0).numpy()
-    except Exception as e:
+        # 수정된 부분: 딕셔너리 키로 접근
+        if 'geometry_out' in hooked_embeddings:
+            # [Batch, Num_Tokens, Dim] 구조에서 마지막 2개 토큰 추출
+            tokens = hooked_embeddings['geometry_out'][:, -2:, :].reshape(-1)
+            return F.normalize(tokens, dim=0).numpy()
         return None
 
+    except Exception as e:
+        print(f"[Debug] Error processing {img_path}: {e}") # 에러 원인 출력
+        return None
 def main(args):
     os.makedirs(os.path.dirname(args.db_path), exist_ok=True)
-    
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     # ==========================================
     # 1. DB 파일이 없으면 생성
     # ==========================================
     if not os.path.exists(args.db_path):
         print(f"[Info] DB 파일이 없습니다. COCO-O에서 임베딩을 추출합니다...")
-        model = SamModel.from_pretrained(args.model_id).to(args.device)
-        processor = SamProcessor.from_pretrained(args.model_id)
-        
+        model = Sam3Model.from_pretrained(args.model_id).to(device)
+        processor = Sam3Processor.from_pretrained(args.model_id)
         database = []
         for dom in args.target_domains:
             ann_file = os.path.join(args.data_dir, "ood_coco", dom, "annotations", "instances_val2017.json")

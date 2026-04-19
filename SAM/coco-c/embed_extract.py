@@ -18,7 +18,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="facebook/sam-vit-base") 
     parser.add_argument("--data_dir", type=str, default="../../data/coco")
-    parser.add_argument("--num_samples", type=int, default=1000, help="평가할 샘플 수")
+    parser.add_argument("--num_samples", type=int, default=5000, help="평가할 샘플 수")
     parser.add_argument("--save_interval", type=int, default=50, help="중간 저장 간격") 
     return parser.parse_args()
 

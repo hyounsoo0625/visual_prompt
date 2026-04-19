@@ -30,7 +30,7 @@ sns.stripplot(x='Corruption', y='Similarity', data=df, color=".25", alpha=0.3, s
 ax.set_ylabel('Similarity to Clean Anchor')
 ax.set_xlabel('')
 ax.set_title(f'Semantic Drift Distribution (Severity {severity})')
-ax.set_ylim(0.2, 1.0)
+ax.set_ylim(0.5, 1.0)
 ax.grid(axis='y', linestyle='--', alpha=0.7)
 
 plt.tight_layout()
